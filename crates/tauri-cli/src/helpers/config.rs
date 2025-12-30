@@ -141,7 +141,7 @@ pub fn custom_sign_settings(
   }
 }
 
-fn config_handle() -> ConfigHandle {
+fn config_handle() -> &'static Mutex<Option<ConfigMetadata>> {
   static CONFIG_HANDLE: Mutex<Option<ConfigMetadata>> = Mutex::new(None);
   &CONFIG_HANDLE
 }

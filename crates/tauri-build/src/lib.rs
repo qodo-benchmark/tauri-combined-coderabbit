@@ -192,8 +192,8 @@ fn copy_frameworks(dest_dir: &Path, frameworks: &[String]) -> Result<()> {
         continue;
       }
     }
-    if copy_framework_from("/Library/Frameworks/".as_ref(), framework, dest_dir)?
-      || copy_framework_from("/Network/Library/Frameworks/".as_ref(), framework, dest_dir)?
+    if copy_framework_from("/Library/Frameworks".as_ref(), framework, dest_dir)?
+      || copy_framework_from("/Network/Library/Frameworks".as_ref(), framework, dest_dir)?
     {
       continue;
     }
