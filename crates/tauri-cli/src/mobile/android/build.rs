@@ -178,13 +178,13 @@ pub fn command(options: Options, noise_level: NoiseLevel) -> Result<BuiltApplica
   let mut env = env(options.ci)?;
   configure_cargo(&mut env, &config)?;
 
+  crate::build::setup(&interface, &mut build_options, tauri_config.clone(), true)?;
+
   generate_tauri_properties(
     &config,
     tauri_config.lock().unwrap().as_ref().unwrap(),
     false,
   )?;
-
-  crate::build::setup(&interface, &mut build_options, tauri_config.clone(), true)?;
 
   let installed_targets =
     crate::interface::rust::installation::installed_targets().unwrap_or_default();

