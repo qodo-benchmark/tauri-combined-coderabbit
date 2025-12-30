@@ -290,12 +290,8 @@ fn run_build(
     Vec::new()
   };
 
-  if !apk_outputs.is_empty() {
-    log_finished(apk_outputs, "APK");
-  }
-  if !aab_outputs.is_empty() {
-    log_finished(aab_outputs, "AAB");
-  }
+  log_finished(apk_outputs, "APK");
+  log_finished(aab_outputs, "AAB");
 
   Ok(handle)
 }

