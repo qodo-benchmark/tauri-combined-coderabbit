@@ -259,7 +259,7 @@ export GDK_PIXBUF_MODULE_FILE="\$APPDIR/$gdk_pixbuf_cache_file"
 EOF
 if [ -x "$gdk_pixbuf_query" ]; then
     echo "Updating pixbuf cache in $APPDIR/$gdk_pixbuf_cache_file"
-    "$gdk_pixbuf_query" > "$APPDIR/$gdk_pixbuf_cache_file"
+    "$gdk_pixbuf_query" "$APPDIR/$gdk_pixbuf_moduledir"/* > "$APPDIR/$gdk_pixbuf_cache_file"
 else
     echo "WARNING: gdk-pixbuf-query-loaders not found"
 fi

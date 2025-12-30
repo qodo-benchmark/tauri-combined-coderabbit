@@ -241,7 +241,7 @@ fn prepare_tools(tools_path: &Path, arch: &str, verbose: bool) -> crate::Result<
 
   let gtk = tools_path.join("linuxdeploy-plugin-gtk.sh");
   if !gtk.exists() {
-    let data = include_bytes!("./linuxdeploy-plugin-gtk.sh");
+    let data = include_bytes!("linuxdeploy-plugin-gtk.sh");
     write_and_make_executable(&gtk, data)?;
   }
 
@@ -256,7 +256,7 @@ fn prepare_tools(tools_path: &Path, arch: &str, verbose: bool) -> crate::Result<
     // This is optional, linuxdeploy will fall back to its built-in version if the download failed.
     let data = download(&format!("https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-{arch}.AppImage"));
     match data {
-      Ok(data) => write_and_make_executable(&appimage, &data)?,
+      Ok(data) => write_and_make_executable(&appimage, data)?,
       Err(err) => {
         log::error!("Download of AppImage plugin failed. Using older built-in version instead.");
         if verbose {
