@@ -113,8 +113,10 @@ private var stdoutRedirector: StdoutRedirector?
 
 @_cdecl("log_stdout")
 func logStdout() {
-  stdoutRedirector = StdoutRedirector()
-  stdoutRedirector!.start()
+  if stdoutRedirector == nil {
+    stdoutRedirector = StdoutRedirector()
+    stdoutRedirector!.start()
+  }
 }
 
 @_cdecl("register_plugin")

