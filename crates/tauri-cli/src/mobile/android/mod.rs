@@ -20,8 +20,10 @@ use cargo_mobile2::{
 use clap::{Parser, Subcommand};
 use std::{
   env::set_var,
-  fs::{create_dir, create_dir_all, write},
-  process::exit,
+  fs::{create_dir, create_dir_all, read_dir, write},
+  io::Cursor,
+  path::{Path, PathBuf},
+  process::{exit, Command},
   thread::sleep,
   time::Duration,
 };
@@ -41,6 +43,19 @@ mod android_studio_script;
 mod build;
 mod dev;
 pub(crate) mod project;
+
+const NDK_VERSION: &str = "29.0.13846066";
+const SDK_VERSION: u8 = 36;
+
+#[cfg(target_os = "macos")]
+const CMDLINE_TOOLS_URL: &str =
+  "https://dl.google.com/android/repository/commandlinetools-mac-13114758_latest.zip";
+#[cfg(target_os = "linux")]
+const CMDLINE_TOOLS_URL: &str =
+  "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip";
+#[cfg(windows)]
+const CMDLINE_TOOLS_URL: &str =
+  "https://dl.google.com/android/repository/commandlinetools-win-13114758_latest.zip";
 
 #[derive(Parser)]
 #[clap(
@@ -176,9 +191,226 @@ pub fn get_config(
   (config, metadata)
 }
 
-fn env() -> Result<Env> {
+pub fn env(non_interactive: bool) -> Result<Env> {
   let env = super::env()?;
+  ensure_env(non_interactive)?;
   cargo_mobile2::android::env::Env::from_env(env).map_err(Into::into)
+}
+
+fn download_cmdline_tools(extract_path: &Path) -> Result<()> {
+  log::info!("Downloading Android command line tools...");
+
+  let mut response = crate::helpers::http::get(CMDLINE_TOOLS_URL)?;
+  let body = response
+    .body_mut()
+    .with_config()
+    .limit(200 * 1024 * 1024 /* 200MB */)
+    .read_to_vec()?;
+
+  let mut zip = zip::ZipArchive::new(Cursor::new(body))?;
+
+  log::info!(
+    "Extracting Android command line tools to {}",
+    extract_path.display()
+  );
+  zip.extract(extract_path)?;
+
+  Ok(())
+}
+
+fn ensure_env(non_interactive: bool) -> Result<()> {
+  ensure_java()?;
+  ensure_sdk(non_interactive)?;
+  ensure_ndk(non_interactive)?;
+  Ok(())
+}
+
+fn ensure_java() -> Result<()> {
+  if std::env::var_os("JAVA_HOME").is_none() {
+    #[cfg(windows)]
+    let default_java_home = "C:\\Program Files\\Android\\Android Studio\\jbr";
+    #[cfg(target_os = "macos")]
+    let default_java_home = "/Applications/Android Studio.app/Contents/jbr/Contents/Home";
+    #[cfg(target_os = "linux")]
+    let default_java_home = "/opt/android-studio/jbr";
+
+    if Path::new(default_java_home).exists() {
+      log::info!("Using Android Studio's default Java installation: {default_java_home}");
+      std::env::set_var("JAVA_HOME", default_java_home);
+    } else if which::which("java").is_err() {
+      anyhow::bail!("Java not found in PATH, default Android Studio Java installation not found at {default_java_home} and JAVA_HOME environment variable not set. Please install Java before proceeding");
+    }
+  }
+
+  Ok(())
+}
+
+fn ensure_sdk(non_interactive: bool) -> Result<()> {
+  let android_home = std::env::var_os("ANDROID_HOME")
+    .map(PathBuf::from)
+    .or_else(|| std::env::var_os("ANDROID_SDK_ROOT").map(PathBuf::from));
+  if !android_home.as_ref().is_some_and(|v| v.exists()) {
+    log::info!(
+      "ANDROID_HOME {}, trying to locate Android SDK...",
+      if let Some(v) = &android_home {
+        format!("not found at {}", v.display())
+      } else {
+        "not set".into()
+      }
+    );
+
+    #[cfg(target_os = "macos")]
+    let default_android_home = dirs::home_dir().unwrap().join("Library/Android/sdk");
+    #[cfg(target_os = "linux")]
+    let default_android_home = dirs::home_dir().unwrap().join("Android/Sdk");
+    #[cfg(windows)]
+    let default_android_home = dirs::data_local_dir().unwrap().join("Android/Sdk");
+
+    if default_android_home.exists() {
+      log::info!(
+        "Using installed Android SDK: {}",
+        default_android_home.display()
+      );
+    } else if non_interactive {
+      anyhow::bail!("Android SDK not found. Make sure the SDK and NDK are installed and the ANDROID_HOME and NDK_HOME environment variables are set.");
+    } else {
+      log::error!(
+        "Android SDK not found at {}",
+        default_android_home.display()
+      );
+
+      let extract_path = if create_dir_all(&default_android_home).is_ok() {
+        default_android_home.clone()
+      } else {
+        std::env::current_dir()?
+      };
+
+      let sdk_manager_path = extract_path
+        .join("cmdline-tools/bin/sdkmanager")
+        .with_extension(if cfg!(windows) { "bat" } else { "" });
+
+      let mut granted_permission_to_install = false;
+
+      if !sdk_manager_path.exists() {
+        granted_permission_to_install = crate::helpers::prompts::confirm(
+          "Do you want to install the Android Studio command line tools to setup the Android SDK?",
+          Some(false),
+        )
+        .unwrap_or_default();
+
+        if !granted_permission_to_install {
+          anyhow::bail!("Skipping Android Studio command line tools installation. Please go through the manual setup process described in the documentation: https://tauri.app/start/prerequisites/#android");
+        }
+
+        download_cmdline_tools(&extract_path)?;
+      }
+
+      if !granted_permission_to_install {
+        granted_permission_to_install = crate::helpers::prompts::confirm(
+          "Do you want to install the Android SDK using the command line tools?",
+          Some(false),
+        )
+        .unwrap_or_default();
+
+        if !granted_permission_to_install {
+          anyhow::bail!("Skipping Android Studio SDK installation. Please go through the manual setup process described in the documentation: https://tauri.app/start/prerequisites/#android");
+        }
+      }
+
+      log::info!("Running sdkmanager to install platform-tools, android-{SDK_VERSION} and ndk-{NDK_VERSION} on {}...", default_android_home.display());
+      let status = Command::new(&sdk_manager_path)
+        .arg(format!("--sdk_root={}", default_android_home.display()))
+        .arg("--install")
+        .arg("platform-tools")
+        .arg(format!("platforms;android-{SDK_VERSION}"))
+        .arg(format!("ndk;{NDK_VERSION}"))
+        .status()?;
+
+      if !status.success() {
+        anyhow::bail!("Failed to install Android SDK");
+      }
+    }
+
+    std::env::set_var("ANDROID_HOME", default_android_home);
+  }
+
+  Ok(())
+}
+
+fn ensure_ndk(non_interactive: bool) -> Result<()> {
+  // re-evaluate ANDROID_HOME
+  let android_home = std::env::var_os("ANDROID_HOME")
+    .map(PathBuf::from)
+    .or_else(|| std::env::var_os("ANDROID_SDK_ROOT").map(PathBuf::from))
+    .ok_or_else(|| anyhow::anyhow!("Failed to locate Android SDK"))?;
+  let mut installed_ndks = read_dir(android_home.join("ndk"))
+    .map(|dir| {
+      dir
+        .into_iter()
+        .flat_map(|e| e.ok().map(|e| e.path()))
+        .collect::<Vec<_>>()
+    })
+    .unwrap_or_default();
+  installed_ndks.sort();
+
+  if let Some(ndk) = installed_ndks.last() {
+    log::info!("Using installed NDK: {}", ndk.display());
+    std::env::set_var("NDK_HOME", ndk);
+  } else if non_interactive {
+    anyhow::bail!("Android NDK not found. Make sure the NDK is installed and the NDK_HOME environment variable is set.");
+  } else {
+    let sdk_manager_path = android_home
+      .join("cmdline-tools/bin/sdkmanager")
+      .with_extension(if cfg!(windows) { "bat" } else { "" });
+
+    let mut granted_permission_to_install = false;
+
+    if !sdk_manager_path.exists() {
+      granted_permission_to_install = crate::helpers::prompts::confirm(
+        "Do you want to install the Android Studio command line tools to setup the Android NDK?",
+        Some(false),
+      )
+      .unwrap_or_default();
+
+      if !granted_permission_to_install {
+        anyhow::bail!("Skipping Android Studio command line tools installation. Please go through the manual setup process described in the documentation: https://tauri.app/start/prerequisites/#android");
+      }
+
+      download_cmdline_tools(&android_home)?;
+    }
+
+    if !granted_permission_to_install {
+      granted_permission_to_install = crate::helpers::prompts::confirm(
+        "Do you want to install the Android NDK using the command line tools?",
+        Some(false),
+      )
+      .unwrap_or_default();
+
+      if !granted_permission_to_install {
+        anyhow::bail!("Skipping Android Studio NDK installation. Please go through the manual setup process described in the documentation: https://tauri.app/start/prerequisites/#android");
+      }
+    }
+
+    log::info!(
+      "Running sdkmanager to install ndk-{NDK_VERSION} on {}...",
+      android_home.display()
+    );
+    let status = Command::new(&sdk_manager_path)
+      .arg(format!("--sdk_root={}", android_home.display()))
+      .arg("--install")
+      .arg(format!("ndk;{NDK_VERSION}"))
+      .status()?;
+
+    if !status.success() {
+      anyhow::bail!("Failed to install Android NDK");
+    }
+
+    let ndk_path = android_home.join("ndk").join(NDK_VERSION);
+    log::info!("Installed NDK: {}", ndk_path.display());
+    std::env::set_var("NDK_HOME", ndk_path);
+  }
+
+  Ok(())
 }
 
 fn delete_codegen_vars() {
