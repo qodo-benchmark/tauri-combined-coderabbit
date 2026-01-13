@@ -338,10 +338,10 @@ fn create_info_plist(
               );
             }
 
-            if let Some(content_types) = &association.content_types {
+            if let Some(exported_type) = &association.exported_type {
               dict.insert(
                 "LSItemContentTypes".into(),
-                plist::Value::Array(content_types.iter().map(|s| s.to_string().into()).collect()),
+                plist::Value::Array(vec![exported_type.identifier.clone().into()]),
               );
             }
 
