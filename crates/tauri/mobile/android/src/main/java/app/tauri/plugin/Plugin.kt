@@ -174,6 +174,11 @@ abstract class Plugin(private val activity: Activity) {
       if (c != null) {
         eventListeners.remove(c)
       }
+
+      // Clean up empty list
+      if (eventListeners.isEmpty()) {
+        listeners.remove(args.event)
+      }
     }
 
     invoke.resolve()
