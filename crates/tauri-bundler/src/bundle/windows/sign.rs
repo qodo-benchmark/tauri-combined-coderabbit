@@ -266,6 +266,7 @@ pub fn try_sign<P: AsRef<Path>>(file_path: P, settings: &Settings) -> crate::Res
 pub fn should_sign(file_path: &Path) -> crate::Result<bool> {
   let is_binary = file_path
     .extension()
+    .and_then(|ext| ext.to_str())
     .is_some_and(|ext| ext == "exe" || ext == "dll");
   if !is_binary {
     return Ok(false);

