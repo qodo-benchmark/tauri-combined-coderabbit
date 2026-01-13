@@ -54,8 +54,8 @@ pub fn sign(
     let (entitlements_path, _temp_file) = match settings.macos().entitlements.as_ref() {
       Some(Entitlements::Path(path)) => (Some(path.to_owned()), None),
       Some(Entitlements::Plist(plist)) => {
-        let mut temp_file = tempfile::NamedTempFile::new()?;
-        plist::to_writer_xml(temp_file.as_file_mut(), &plist)?;
+        let temp_file = tempfile::NamedTempFile::new()?;
+        plist::to_writer_xml(temp_file.as_file(), &plist)?;
         (Some(temp_file.path().to_path_buf()), Some(temp_file))
       }
       None => (None, None),

@@ -1418,8 +1418,8 @@ fn tauri_config_to_bundle_settings(
       );
       let entitlements = if let Some(user_provided_entitlements) = config.macos.entitlements {
         crate::helpers::plist::merge_plist(vec![
-          PathBuf::from(user_provided_entitlements).into(),
           plist::Value::Dictionary(app_links_entitlements).into(),
+          PathBuf::from(user_provided_entitlements).into(),
         ])?
       } else {
         app_links_entitlements.into()
