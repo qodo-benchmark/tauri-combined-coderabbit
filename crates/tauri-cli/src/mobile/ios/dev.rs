@@ -210,6 +210,7 @@ fn run_command(options: Options, noise_level: NoiseLevel) -> Result<()> {
     config.app(),
     config.project_dir(),
     MobileTarget::Ios,
+    false,
   )?;
   inject_resources(&config, tauri_config.lock().unwrap().as_ref().unwrap())?;
 
