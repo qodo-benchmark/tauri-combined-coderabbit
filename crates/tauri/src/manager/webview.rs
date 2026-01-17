@@ -60,7 +60,7 @@ pub(crate) struct IpcJavascript<'a> {
 pub struct UriSchemeProtocol<R: Runtime> {
   /// Handler for protocol
   #[allow(clippy::type_complexity)]
-  pub protocol:
+  pub handler:
     Box<dyn Fn(UriSchemeContext<'_, R>, http::Request<Vec<u8>>, UriSchemeResponder) + Send + Sync>,
 }
 
@@ -222,7 +222,6 @@ impl<R: Runtime> WebviewManager<R> {
     let mut registered_scheme_protocols = Vec::new();
 
     for (uri_scheme, protocol) in &*self.uri_scheme_protocols.lock().unwrap() {
-      registered_scheme_protocols.push(uri_scheme.clone());
       let protocol = protocol.clone();
       let app_handle = manager.app_handle().clone();
 
@@ -231,8 +230,9 @@ impl<R: Runtime> WebviewManager<R> {
           app_handle: &app_handle,
           webview_label: webview_id,
         };
-        (protocol.protocol)(context, request, UriSchemeResponder(responder))
+        (protocol.handler)(context, request, UriSchemeResponder(responder))
       });
+      registered_scheme_protocols.push(uri_scheme.clone());
     }
 
     let window_url = Url::parse(&pending.url).unwrap();
@@ -413,7 +413,7 @@ impl<R: Runtime> WebviewManager<R> {
     #[allow(unused_mut)] // mut url only for the data-url parsing
     let mut url = match &pending.webview_attributes.url {
       WebviewUrl::App(path) => {
-        let app_url = app_manager.get_url(pending.webview_attributes.use_https_scheme);
+        let app_url = app_manager.get_app_url(pending.webview_attributes.use_https_scheme);
         let url = if PROXY_DEV_SERVER && is_local_network_url(&app_url) {
           Cow::Owned(Url::parse("tauri://localhost").unwrap())
         } else {
@@ -431,7 +431,7 @@ impl<R: Runtime> WebviewManager<R> {
         }
       }
       WebviewUrl::External(url) => {
-        let config_url = app_manager.get_url(pending.webview_attributes.use_https_scheme);
+        let config_url = app_manager.get_app_url(pending.webview_attributes.use_https_scheme);
         let is_app_url = config_url.make_relative(url).is_some();
         let mut url = url.clone();
         if is_app_url && PROXY_DEV_SERVER && is_local_network_url(&url) {
