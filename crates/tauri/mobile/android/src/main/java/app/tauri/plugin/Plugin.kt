@@ -8,7 +8,6 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.result.IntentSenderRequest
 import androidx.core.app.ActivityCompat
@@ -22,7 +21,6 @@ import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.json.JSONException
 import java.util.*
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -148,6 +146,10 @@ abstract class Plugin(private val activity: Activity) {
     }
   }
 
+  fun hasListener(event: String): Boolean {
+    return !listeners[event].isNullOrEmpty()
+  }
+
   @Command
   open fun registerListener(invoke: Invoke) {
     val args = invoke.parseArgs(RegisterListenerArgs::class.java)
@@ -171,6 +173,11 @@ abstract class Plugin(private val activity: Activity) {
       val c = eventListeners.find { c -> c.id == args.channelId }
       if (c != null) {
         eventListeners.remove(c)
+      }
+
+      // Clean up empty list
+      if (eventListeners.isEmpty()) {
+        listeners.remove(args.event)
       }
     }
 
