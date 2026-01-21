@@ -30,7 +30,7 @@
     ) {
       // macOS maximization happens on `mouseup`,
       // so we save needed state and early return
-      if (osName === 'macos' && e.detail === 2) {
+      if (osName === 'macos' && e.detail == 2) {
         initialX = e.clientX
         initialY = e.clientY
         return
