@@ -88,7 +88,7 @@ pub fn run_app<R: Runtime, F: FnOnce(&App<R>) + Send + 'static>(
 
             let builder = tauri::WebviewWindowBuilder::new(
               &app_,
-              format!("new-{number}"),
+              format!("new-window-{number}"),
               tauri::WebviewUrl::External("about:blank".parse().unwrap()),
             )
             .window_features(features)
