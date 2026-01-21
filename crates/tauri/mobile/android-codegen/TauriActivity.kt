@@ -35,13 +35,13 @@ abstract class TauriActivity : WryActivity() {
   }
 
   override fun onStop() {
-    super.onStop()
     pluginManager.onStop()
+    super.onStop()
   }
 
   override fun onDestroy() {
-    super.onDestroy()
     pluginManager.onDestroy()
+    super.onDestroy()
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
