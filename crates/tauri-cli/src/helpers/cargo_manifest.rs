@@ -191,7 +191,7 @@ pub fn crate_version(
       }
     }
 
-    if lock.is_some() && crate_lock_packages.is_empty() {
+    if lock.is_some() && !crate_lock_packages.is_empty() {
       let lock_version = crate_lock_packages
         .iter()
         .map(|p| p.version.clone())

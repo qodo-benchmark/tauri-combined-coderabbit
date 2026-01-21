@@ -4,6 +4,7 @@
 
 use std::{
   fs::create_dir_all,
+  io::Read,
   path::{Path, PathBuf},
 };
 use ureq::ResponseExt;
@@ -61,7 +62,10 @@ pub fn download_webview2_offline_installer(base_path: &Path, arch: &str) -> crat
   let file_path = dir_path.join(filename);
   if !file_path.exists() {
     create_dir_all(dir_path)?;
-    std::fs::write(&file_path, download(url)?)?;
+    let response = ureq::get(url).call().map_err(Box::new)?;
+    let mut bytes = Vec::new();
+    response.into_body().into_reader().read_to_end(&mut bytes)?;
+    std::fs::write(&file_path, bytes)?;
   }
   Ok(file_path)
 }

