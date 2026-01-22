@@ -5,4 +5,5 @@
 "tauri-utils": minor:feat
 ---
 
+
 Add `tauri.conf.json > bundle > android > autoIncrementVersionCode` config option to automatically increment the Android version code.
