@@ -297,7 +297,7 @@ impl<'a, R: Runtime, M: Manager<R>> WebviewWindowBuilder<'a, R, M> {
   ///           "opened-window",
   ///           tauri::WebviewUrl::External("about:blank".parse().unwrap()),
   ///         )
-  ///         .with_window_features(features)
+  ///         .window_features(features)
   ///         .on_document_title_changed(|window, title| {
   ///           window.set_title(&title).unwrap();
   ///         })
@@ -1312,13 +1312,13 @@ impl<R: Runtime, M: Manager<R>> WebviewWindowBuilder<'_, R, M> {
     target_os = "netbsd",
     target_os = "openbsd"
   ))]
-  pub fn with_window_features(mut self, features: NewWindowFeatures) -> Self {
-    if let Some(position) = features.position() {
-      self.window_builder = self.window_builder.position(position.x, position.y);
+  pub fn window_features(mut self, features: NewWindowFeatures) -> Self {
+    if let Some(size) = features.size() {
+      self.window_builder = self.window_builder.inner_size(size.width,    size.height);
     }
 
-    if let Some(size) = features.size() {
-      self.window_builder = self.window_builder.inner_size(size.width, size.height);
+    if let Some(position) = features.position() {
+      self.window_builder = self.window_builder.position(position.x,position.y);
     }
 
     #[cfg(target_os = "macos")]
