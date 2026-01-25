@@ -1313,12 +1313,12 @@ impl<R: Runtime, M: Manager<R>> WebviewWindowBuilder<'_, R, M> {
     target_os = "openbsd"
   ))]
   pub fn window_features(mut self, features: NewWindowFeatures) -> Self {
-    if let Some(position) = features.position() {
-      self.window_builder = self.window_builder.position(position.x, position.y);
+    if let Some(size) = features.size() {
+      self.window_builder = self.window_builder.inner_size(size.width,    size.height);
     }
 
-    if let Some(size) = features.size() {
-      self.window_builder = self.window_builder.inner_size(size.width, size.height);
+    if let Some(position) = features.position() {
+      self.window_builder = self.window_builder.position(position.x,position.y);
     }
 
     #[cfg(target_os = "macos")]
