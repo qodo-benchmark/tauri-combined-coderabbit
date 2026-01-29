@@ -2929,6 +2929,16 @@ pub struct AndroidConfig {
   #[serde(alias = "version-code")]
   #[cfg_attr(feature = "schema", validate(range(min = 1, max = 2_100_000_000)))]
   pub version_code: Option<u32>,
+
+  /// Whether to automatically increment the `versionCode` on each build.
+  ///
+  /// - If `true`, the generator will try to read the last `versionCode` from
+  ///   `tauri.properties` and increment it by 1 for every build.
+  /// - If `false` or not set, it falls back to `version_code` or semver-derived logic.
+  ///
+  /// Note that to use this feature, you should remove `/tauri.properties` from `src-tauri/gen/android/app/.gitignore` so the current versionCode is committed to the repository.
+  #[serde(alias = "auto-increment-version-code", default)]
+  pub auto_increment_version_code: bool,
 }
 
 impl Default for AndroidConfig {
@@ -2936,6 +2946,7 @@ impl Default for AndroidConfig {
     Self {
       min_sdk_version: default_min_sdk_version(),
       version_code: None,
+      auto_increment_version_code: false,
     }
   }
 }
