@@ -1177,6 +1177,12 @@ impl<'d> serde::Deserialize<'d> for AssociationExt {
 pub struct FileAssociation {
   /// File extensions to associate with this app. e.g. 'png'
   pub ext: Vec<AssociationExt>,
+  /// Declare support to a file with the given content type. Maps to `LSItemContentTypes` on macOS.
+  ///
+  /// This allows supporting any file format declared by another application that conforms to this type.
+  /// Declaration of new types can be done with [`Self::exported_type`] and linking to certain content types are done via [`ExportedFileAssociation::conforms_to`].
+  #[serde(alias = "content-types")]
+  pub content_types: Option<Vec<String>>,
   /// The name. Maps to `CFBundleTypeName` on macOS. Default to `ext[0]`
   pub name: Option<String>,
   /// The association description. Windows-only. It is displayed on the `Type` column on Windows Explorer.
@@ -1190,6 +1196,24 @@ pub struct FileAssociation {
   /// The ranking of this app among apps that declare themselves as editors or viewers of the given file type.  Maps to `LSHandlerRank` on macOS.
   #[serde(default)]
   pub rank: HandlerRank,
+  /// The exported type definition. Maps to a `UTExportedTypeDeclarations` entry on macOS.
+  ///
+  /// You should define this if the associated file is a custom file type defined by your application.
+  pub exported_type: Option<ExportedFileAssociation>,
+}
+
+/// The exported type definition. Maps to a `UTExportedTypeDeclarations` entry on macOS.
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "schema", derive(JsonSchema))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExportedFileAssociation {
+  /// The unique identifier for the exported type. Maps to `UTTypeIdentifier`.
+  pub identifier: String,
+  /// The types that this type conforms to. Maps to `UTTypeConformsTo`.
+  ///
+  /// Examples are `public.data`, `public.image`, `public.json` and `public.database`.
+  #[serde(alias = "conforms-to")]
+  pub conforms_to: Option<Vec<String>>,
 }
 
 /// Deep link protocol configuration.
@@ -1356,7 +1380,7 @@ pub struct BundleConfig {
   /// Should be one of the following:
   /// Business, DeveloperTool, Education, Entertainment, Finance, Game, ActionGame, AdventureGame, ArcadeGame, BoardGame, CardGame, CasinoGame, DiceGame, EducationalGame, FamilyGame, KidsGame, MusicGame, PuzzleGame, RacingGame, RolePlayingGame, SimulationGame, SportsGame, StrategyGame, TriviaGame, WordGame, GraphicsAndDesign, HealthcareAndFitness, Lifestyle, Medical, Music, News, Photography, Productivity, Reference, SocialNetworking, Sports, Travel, Utility, Video, Weather.
   pub category: Option<String>,
-  /// File associations to application.
+  /// File types to associate with the application.
   pub file_associations: Option<Vec<FileAssociation>>,
   /// A short description of your application.
   #[serde(alias = "short-description")]
