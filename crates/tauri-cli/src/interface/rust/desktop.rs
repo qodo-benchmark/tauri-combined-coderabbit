@@ -12,7 +12,7 @@ use shared_child::SharedChild;
 use std::{
   fs,
   io::{BufReader, ErrorKind, Write},
-  path::PathBuf,
+  path::{Path, PathBuf},
   process::{Command, ExitStatus, Stdio},
   sync::{
     atomic::{AtomicBool, Ordering},
@@ -158,9 +158,10 @@ pub fn build(
   available_targets: &mut Option<Vec<RustupTarget>>,
   config_features: Vec<String>,
   main_binary_name: Option<&str>,
+  tauri_dir: &Path,
 ) -> crate::Result<PathBuf> {
-  let out_dir = app_settings.out_dir(&options)?;
-  let bin_path = app_settings.app_binary_path(&options)?;
+  let out_dir = app_settings.out_dir(&options, tauri_dir)?;
+  let bin_path = app_settings.app_binary_path(&options, tauri_dir)?;
 
   if !std::env::var("STATIC_VCRUNTIME").is_ok_and(|v| v == "false") {
     std::env::set_var("STATIC_VCRUNTIME", "true");
@@ -182,7 +183,7 @@ pub fn build(
       options.target.replace(triple.into());
 
       let triple_out_dir = app_settings
-        .out_dir(&options)
+        .out_dir(&options, tauri_dir)
         .with_context(|| format!("failed to get {triple} out dir"))?;
 
       build_production_app(options, available_targets, config_features.clone())
@@ -348,8 +349,6 @@ mod terminal {
   pub fn stderr_width() -> Option<usize> {
     unsafe {
       let mut winsize: libc::winsize = mem::zeroed();
-      // The .into() here is needed for FreeBSD which defines TIOCGWINSZ
-      // as c_uint but ioctl wants c_ulong.
       #[allow(clippy::useless_conversion)]
       if libc::ioctl(libc::STDERR_FILENO, libc::TIOCGWINSZ.into(), &mut winsize) < 0 {
         return None;

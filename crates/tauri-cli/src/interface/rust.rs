@@ -31,8 +31,8 @@ use super::{AppSettings, DevProcess, ExitReason, Interface};
 use crate::{
   error::{Context, Error, ErrorExt},
   helpers::{
-    app_paths::{frontend_dir, tauri_dir},
-    config::{nsis_settings, reload as reload_config, wix_settings, BundleResources, Config},
+    app_paths::Dirs,
+    config::{nsis_settings, reload_config, wix_settings, BundleResources, Config, ConfigMetadata},
   },
   ConfigValue,
 };
@@ -137,7 +137,7 @@ pub struct Rust {
 impl Interface for Rust {
   type AppSettings = RustAppSettings;
 
-  fn new(config: &Config, target: Option<String>) -> crate::Result<Self> {
+  fn new(config: &Config, target: Option<String>, tauri_dir: &Path) -> crate::Result<Self> {
     let manifest = {
       let (tx, rx) = sync_channel(1);
       let mut watcher = new_debouncer(Duration::from_secs(1), None, move |r| {
@@ -147,14 +147,9 @@ impl Interface for Rust {
       })
       .unwrap();
       watcher
-        .watch(tauri_dir().join("Cargo.toml"), RecursiveMode::NonRecursive)
-        .with_context(|| {
-          format!(
-            "failed to watch {}",
-            tauri_dir().join("Cargo.toml").display()
-          )
-        })?;
-      let (manifest, modified) = rewrite_manifest(config)?;
+        .watch(tauri_dir.join("Cargo.toml"), RecursiveMode::NonRecursive)
+        .with_context(|| format!("failed to watch {}", tauri_dir.join("Cargo.toml").display()))?;
+      let (manifest, modified) = rewrite_manifest(config, tauri_dir)?;
       if modified {
         // Wait for the modified event so we don't trigger a re-build later on
         let _ = rx.recv_timeout(Duration::from_secs(2));
@@ -172,7 +167,7 @@ impl Interface for Rust {
       );
     }
 
-    let app_settings = RustAppSettings::new(config, manifest, target)?;
+    let app_settings = RustAppSettings::new(config, manifest, target, tauri_dir)?;
 
     Ok(Self {
       app_settings: Arc::new(app_settings),
@@ -186,20 +181,23 @@ impl Interface for Rust {
     self.app_settings.clone()
   }
 
-  fn build(&mut self, options: Options) -> crate::Result<PathBuf> {
+  fn build(&mut self, options: Options, dirs: &Dirs) -> crate::Result<PathBuf> {
     desktop::build(
       options,
       &self.app_settings,
       &mut self.available_targets,
       self.config_features.clone(),
       self.main_binary_name.as_deref(),
+      dirs.tauri,
     )
   }
 
   fn dev<F: Fn(Option<i32>, ExitReason) + Send + Sync + 'static>(
     &mut self,
+    config: &Mutex<ConfigMetadata>,
     mut options: Options,
     on_exit: F,
+    dirs: &Dirs,
   ) -> crate::Result<()> {
     let on_exit = Arc::new(on_exit);
 
@@ -229,14 +227,22 @@ impl Interface for Rust {
           on_exit(status, reason)
         })
       });
-      self.run_dev_watcher(&options.additional_watch_folders, &merge_configs, run)
+      self.run_dev_watcher(
+        config,
+        &options.additional_watch_folders,
+        &merge_configs,
+        run,
+        dirs,
+      )
     }
   }
 
   fn mobile_dev<R: Fn(MobileOptions) -> crate::Result<Box<dyn DevProcess + Send>>>(
     &mut self,
+    config: &Mutex<ConfigMetadata>,
     mut options: MobileOptions,
     runner: R,
+    dirs: &Dirs,
   ) -> crate::Result<()> {
     let mut run_args = Vec::new();
     dev_options(
@@ -252,23 +258,33 @@ impl Interface for Rust {
       Ok(())
     } else {
       self.watch(
+        config,
         WatcherOptions {
           config: options.config.clone(),
           additional_watch_folders: options.additional_watch_folders.clone(),
         },
         move || runner(options.clone()),
+        dirs,
       )
     }
   }
 
   fn watch<R: Fn() -> crate::Result<Box<dyn DevProcess + Send>>>(
     &mut self,
+    config: &Mutex<ConfigMetadata>,
     options: WatcherOptions,
     runner: R,
+    dirs: &Dirs,
   ) -> crate::Result<()> {
     let merge_configs = options.config.iter().map(|c| &c.0).collect::<Vec<_>>();
     let run = Arc::new(|_rust: &mut Rust| runner());
-    self.run_dev_watcher(&options.additional_watch_folders, &merge_configs, run)
+    self.run_dev_watcher(
+      config,
+      &options.additional_watch_folders,
+      &merge_configs,
+      run,
+      dirs,
+    )
   }
 
   fn env(&self) -> HashMap<&str, String> {
@@ -443,19 +459,21 @@ fn expand_member_path(path: &Path) -> crate::Result<Vec<PathBuf>> {
   Ok(res)
 }
 
-fn get_watch_folders(additional_watch_folders: &[PathBuf]) -> crate::Result<Vec<PathBuf>> {
-  let tauri_path = tauri_dir();
-  let workspace_path = get_workspace_dir()?;
+fn get_watch_folders(
+  additional_watch_folders: &[PathBuf],
+  tauri_dir: &Path,
+) -> crate::Result<Vec<PathBuf>> {
+  let workspace_path = get_workspace_dir(tauri_dir)?;
 
   // We always want to watch the main tauri folder.
-  let mut watch_folders = vec![tauri_path.to_path_buf()];
+  let mut watch_folders = vec![tauri_dir.to_path_buf()];
 
   // Add the additional watch folders, resolving the path from the tauri path if it is relative
   watch_folders.extend(additional_watch_folders.iter().filter_map(|dir| {
     let path = if dir.is_absolute() {
       dir.to_owned()
     } else {
-      tauri_path.join(dir)
+      tauri_dir.join(dir)
     };
 
     let canonicalized = canonicalize(&path).ok();
@@ -523,17 +541,18 @@ impl Rust {
 
   fn run_dev_watcher<F: Fn(&mut Rust) -> crate::Result<Box<dyn DevProcess + Send>>>(
     &mut self,
+    config: &Mutex<ConfigMetadata>,
     additional_watch_folders: &[PathBuf],
     merge_configs: &[&serde_json::Value],
     run: Arc<F>,
+    dirs: &Dirs,
   ) -> crate::Result<()> {
     let child = run(self)?;
 
     let process = Arc::new(Mutex::new(child));
     let (tx, rx) = sync_channel(1);
-    let frontend_path = frontend_dir();
 
-    let watch_folders = get_watch_folders(additional_watch_folders)?;
+    let watch_folders = get_watch_folders(additional_watch_folders, dirs.tauri)?;
 
     let common_ancestor = common_path::common_path_all(watch_folders.iter().map(Path::new))
       .expect("watch_folders should not be empty");
@@ -573,22 +592,21 @@ impl Rust {
 
           if let Some(event_path) = event.paths.first() {
             if !ignore_matcher.is_ignore(event_path, event_path.is_dir()) {
-              if is_configuration_file(self.app_settings.target_platform, event_path) {
-                if let Ok(config) = reload_config(merge_configs) {
-                  let (manifest, modified) =
-                    rewrite_manifest(config.lock().unwrap().as_ref().unwrap())?;
-                  if modified {
-                    *self.app_settings.manifest.lock().unwrap() = manifest;
-                    // no need to run the watcher logic, the manifest was modified
-                    // and it will trigger the watcher again
-                    continue;
-                  }
+              if is_configuration_file(self.app_settings.target_platform, event_path)
+                && reload_config(&mut config.lock().unwrap(), merge_configs, dirs.tauri).is_ok()
+              {
+                let (manifest, modified) = rewrite_manifest(&config.lock().unwrap(), dirs.tauri)?;
+                if modified {
+                  *self.app_settings.manifest.lock().unwrap() = manifest;
+                  // no need to run the watcher logic, the manifest was modified
+                  // and it will trigger the watcher again
+                  continue;
                 }
               }
 
               log::info!(
                 "File {} changed. Rebuilding application...",
-                display_path(event_path.strip_prefix(frontend_path).unwrap_or(event_path))
+                display_path(event_path.strip_prefix(dirs.frontend).unwrap_or(event_path))
               );
 
               let mut p = process.lock().unwrap();
@@ -837,6 +855,7 @@ impl AppSettings for RustAppSettings {
     options: &Options,
     config: &Config,
     features: &[String],
+    tauri_dir: &Path,
   ) -> crate::Result<BundleSettings> {
     let arch64bits = self.target_triple.starts_with("x86_64")
       || self.target_triple.starts_with("aarch64")
@@ -867,6 +886,7 @@ impl AppSettings for RustAppSettings {
       self,
       features,
       config,
+      tauri_dir,
       config.bundle.clone(),
       updater_settings,
       arch64bits,
@@ -911,8 +931,8 @@ impl AppSettings for RustAppSettings {
     Ok(settings)
   }
 
-  fn app_binary_path(&self, options: &Options) -> crate::Result<PathBuf> {
-    let binaries = self.get_binaries(options)?;
+  fn app_binary_path(&self, options: &Options, tauri_dir: &Path) -> crate::Result<PathBuf> {
+    let binaries = self.get_binaries(options, tauri_dir)?;
     let bin_name = binaries
       .iter()
       .find(|x| x.main())
@@ -920,7 +940,7 @@ impl AppSettings for RustAppSettings {
       .name();
 
     let out_dir = self
-      .out_dir(options)
+      .out_dir(options, tauri_dir)
       .context("failed to get project out directory")?;
 
     let mut path = out_dir.join(bin_name);
@@ -938,7 +958,7 @@ impl AppSettings for RustAppSettings {
     Ok(path)
   }
 
-  fn get_binaries(&self, options: &Options) -> crate::Result<Vec<BundleBinary>> {
+  fn get_binaries(&self, options: &Options, tauri_dir: &Path) -> crate::Result<Vec<BundleBinary>> {
     let mut binaries = Vec::new();
 
     if let Some(bins) = &self.cargo_settings.bin {
@@ -966,8 +986,6 @@ impl AppSettings for RustAppSettings {
         ))
       }
     }
-
-    let tauri_dir = tauri_dir();
 
     let mut binaries_paths = std::fs::read_dir(tauri_dir.join("src/bin"))
       .map(|dir| {
@@ -1060,8 +1078,12 @@ impl AppSettings for RustAppSettings {
 }
 
 impl RustAppSettings {
-  pub fn new(config: &Config, manifest: Manifest, target: Option<String>) -> crate::Result<Self> {
-    let tauri_dir = tauri_dir();
+  pub fn new(
+    config: &Config,
+    manifest: Manifest,
+    target: Option<String>,
+    tauri_dir: &Path,
+  ) -> crate::Result<Self> {
     let cargo_settings = CargoSettings::load(tauri_dir).context("failed to load Cargo settings")?;
     let cargo_package_settings = match &cargo_settings.package {
       Some(package_info) => package_info.clone(),
@@ -1072,7 +1094,7 @@ impl RustAppSettings {
       }
     };
 
-    let ws_package_settings = CargoSettings::load(&get_workspace_dir()?)
+    let ws_package_settings = CargoSettings::load(&get_workspace_dir(tauri_dir)?)
       .context("failed to load Cargo settings from workspace root")?
       .workspace
       .and_then(|v| v.package);
@@ -1177,8 +1199,8 @@ impl RustAppSettings {
       .or_else(|| self.cargo_config.build().target())
   }
 
-  pub fn out_dir(&self, options: &Options) -> crate::Result<PathBuf> {
-    get_target_dir(self.target(options), options)
+  pub fn out_dir(&self, options: &Options, tauri_dir: &Path) -> crate::Result<PathBuf> {
+    get_target_dir(self.target(options), options, tauri_dir)
   }
 }
 
@@ -1188,10 +1210,10 @@ pub(crate) struct CargoMetadata {
   pub(crate) workspace_root: PathBuf,
 }
 
-pub(crate) fn get_cargo_metadata() -> crate::Result<CargoMetadata> {
+pub(crate) fn get_cargo_metadata(tauri_dir: &Path) -> crate::Result<CargoMetadata> {
   let output = Command::new("cargo")
     .args(["metadata", "--no-deps", "--format-version", "1"])
-    .current_dir(tauri_dir())
+    .current_dir(tauri_dir)
     .output()
     .map_err(|error| Error::CommandFailed {
       command: "cargo metadata --no-deps --format-version 1".to_string(),
@@ -1211,13 +1233,13 @@ pub(crate) fn get_cargo_metadata() -> crate::Result<CargoMetadata> {
 /// Get the cargo target directory based on the provided arguments.
 /// If "--target-dir" is specified in args, use it as the target directory (relative to current directory).
 /// Otherwise, use the target directory from cargo metadata.
-pub(crate) fn get_cargo_target_dir(args: &[String]) -> crate::Result<PathBuf> {
+pub(crate) fn get_cargo_target_dir(args: &[String], tauri_dir: &Path) -> crate::Result<PathBuf> {
   let path = if let Some(target) = get_cargo_option(args, "--target-dir") {
     std::env::current_dir()
       .context("failed to get current directory")?
       .join(target)
   } else {
-    get_cargo_metadata()
+    get_cargo_metadata(tauri_dir)
       .context("failed to run 'cargo metadata' command to get target directory")?
       .target_directory
   };
@@ -1227,8 +1249,12 @@ pub(crate) fn get_cargo_target_dir(args: &[String]) -> crate::Result<PathBuf> {
 
 /// This function determines the 'target' directory and suffixes it with the profile
 /// to determine where the compiled binary will be located.
-fn get_target_dir(triple: Option<&str>, options: &Options) -> crate::Result<PathBuf> {
-  let mut path = get_cargo_target_dir(&options.args)?;
+fn get_target_dir(
+  triple: Option<&str>,
+  options: &Options,
+  tauri_dir: &Path,
+) -> crate::Result<PathBuf> {
+  let mut path = get_cargo_target_dir(&options.args, tauri_dir)?;
 
   if let Some(triple) = triple {
     path.push(triple);
@@ -1253,9 +1279,9 @@ fn get_cargo_option<'a>(args: &'a [String], option: &'a str) -> Option<&'a str> 
 }
 
 /// Executes `cargo metadata` to get the workspace directory.
-pub fn get_workspace_dir() -> crate::Result<PathBuf> {
+pub fn get_workspace_dir(tauri_dir: &Path) -> crate::Result<PathBuf> {
   Ok(
-    get_cargo_metadata()
+    get_cargo_metadata(tauri_dir)
       .context("failed to run 'cargo metadata' command to get workspace directory")?
       .workspace_root,
   )
@@ -1281,6 +1307,7 @@ fn tauri_config_to_bundle_settings(
   settings: &RustAppSettings,
   features: &[String],
   tauri_config: &Config,
+  tauri_dir: &Path,
   config: crate::helpers::config::BundleConfig,
   updater_config: Option<UpdaterSettings>,
   arch64bits: bool,
@@ -1562,7 +1589,7 @@ fn tauri_config_to_bundle_settings(
       info_plist: {
         let mut src_plists = vec![];
 
-        let path = tauri_dir().join("Info.plist");
+        let path = tauri_dir.join("Info.plist");
         if path.exists() {
           src_plists.push(path.into());
         }
@@ -1604,7 +1631,7 @@ fn tauri_config_to_bundle_settings(
             .unwrap()
         })
     }),
-    license_file: config.license_file.map(|l| tauri_dir().join(l)),
+    license_file: config.license_file.map(|l| tauri_dir.join(l)),
     updater: updater_config,
     ..Default::default()
   })
@@ -1741,7 +1768,7 @@ mod tests {
 
   #[test]
   fn parse_target_dir_from_opts() {
-    crate::helpers::app_paths::resolve();
+    let dirs = crate::helpers::app_paths::resolve_dirs();
     let current_dir = std::env::current_dir().unwrap();
 
     let options = Options {
@@ -1758,11 +1785,11 @@ mod tests {
     };
 
     assert_eq!(
-      get_target_dir(None, &options).unwrap(),
+      get_target_dir(None, &options, dirs.tauri).unwrap(),
       current_dir.join("path/to/some/dir/release")
     );
     assert_eq!(
-      get_target_dir(Some("x86_64-pc-windows-msvc"), &options).unwrap(),
+      get_target_dir(Some("x86_64-pc-windows-msvc"), &options, dirs.tauri).unwrap(),
       current_dir
         .join("path/to/some/dir")
         .join("x86_64-pc-windows-msvc")
@@ -1781,23 +1808,27 @@ mod tests {
     };
 
     #[cfg(windows)]
-    assert!(get_target_dir(Some("x86_64-pc-windows-msvc"), &options)
-      .unwrap()
-      .ends_with("x86_64-pc-windows-msvc\\release"));
+    assert!(
+      get_target_dir(Some("x86_64-pc-windows-msvc"), &options, dirs.tauri)
+        .unwrap()
+        .ends_with("x86_64-pc-windows-msvc\\release")
+    );
     #[cfg(not(windows))]
-    assert!(get_target_dir(Some("x86_64-pc-windows-msvc"), &options)
-      .unwrap()
-      .ends_with("x86_64-pc-windows-msvc/release"));
+    assert!(
+      get_target_dir(Some("x86_64-pc-windows-msvc"), &options, dirs.tauri)
+        .unwrap()
+        .ends_with("x86_64-pc-windows-msvc/release")
+    );
 
     #[cfg(windows)]
     {
       std::env::set_var("CARGO_TARGET_DIR", "D:\\path\\to\\env\\dir");
       assert_eq!(
-        get_target_dir(None, &options).unwrap(),
+        get_target_dir(None, &options, dirs.tauri).unwrap(),
         PathBuf::from("D:\\path\\to\\env\\dir\\release")
       );
       assert_eq!(
-        get_target_dir(Some("x86_64-pc-windows-msvc"), &options).unwrap(),
+        get_target_dir(Some("x86_64-pc-windows-msvc"), &options, dirs.tauri).unwrap(),
         PathBuf::from("D:\\path\\to\\env\\dir\\x86_64-pc-windows-msvc\\release")
       );
     }
@@ -1806,11 +1837,11 @@ mod tests {
     {
       std::env::set_var("CARGO_TARGET_DIR", "/path/to/env/dir");
       assert_eq!(
-        get_target_dir(None, &options).unwrap(),
+        get_target_dir(None, &options, dirs.tauri).unwrap(),
         PathBuf::from("/path/to/env/dir/release")
       );
       assert_eq!(
-        get_target_dir(Some("x86_64-pc-windows-msvc"), &options).unwrap(),
+        get_target_dir(Some("x86_64-pc-windows-msvc"), &options, dirs.tauri).unwrap(),
         PathBuf::from("/path/to/env/dir/x86_64-pc-windows-msvc/release")
       );
     }
